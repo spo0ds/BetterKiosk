@@ -1,2 +1,2 @@
 # BetterKiosk
-Kiosk but with a slight twist to make to more better
+Kiosk but with a slight twist to make it more better
