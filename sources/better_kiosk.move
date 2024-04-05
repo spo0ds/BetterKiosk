@@ -23,6 +23,7 @@ module better_kiosk::kiosk {
         item_count: u32,
         nft_owner: Table<ID, address>,
         fee_on_list: bool,
+        prices: Table<ID, u64>,
     }
 
     public struct KioskOwnerCap has key, store {
@@ -49,6 +50,7 @@ module better_kiosk::kiosk {
             item_count: 0,
             nft_owner: table::new(ctx),
             fee_on_list: false,
+            prices: table::new(ctx),
         };
 
         let cap = KioskOwnerCap {
@@ -61,17 +63,19 @@ module better_kiosk::kiosk {
 
     public fun request_approve_for_list<T: key + store>(
         self: &mut Kiosk, item: T,
+        price: u64,
         ctx: &mut TxContext,
     ) {
-        self.place_internal(item, ctx)
+        self.place_internal(item, price, ctx)
     }
 
-    public(package) fun place_internal<T: key + store>(self: &mut Kiosk, item: T, ctx: &mut TxContext) {
+    public(package) fun place_internal<T: key + store>(self: &mut Kiosk, item: T, price: u64, ctx: &mut TxContext) {
         let nft_owner = tx_context::sender(ctx);
         self.item_count = self.item_count + 1;
         let item_id = object::id(&item);
         dof::add(&mut self.id, Item { id: item_id }, item);
         table::add(&mut self.nft_owner, item_id, nft_owner);
+        table::add(&mut self.prices, item_id, price);
     }
 
     public fun full_request_for_nft<T: key + store>(
@@ -84,6 +88,10 @@ module better_kiosk::kiosk {
             df::remove_if_exists<Listing, u64>(&mut self.id, Listing { id});
             let nft_owner = table::borrow(&self.nft_owner, id);
             sui::transfer::public_transfer(dof::remove<ID, T>(&mut self.id, id), *nft_owner);        
+        }else{
+            assert!(self.has_item_with_type<T>(id), EItemNotFound);
+            let price = *table::borrow(&self.prices, id);
+            df::add(&mut self.id, Listing { id}, price);
         };
     }
 
@@ -93,5 +101,9 @@ module better_kiosk::kiosk {
 
     public fun has_access(self: &mut Kiosk, cap: &KioskOwnerCap): bool {
         object::id(self) == cap.`for`
+    }
+
+    public fun has_item_with_type<T: key + store>(self: &Kiosk, id: ID): bool {
+        dof::exists_with_type<Item, T>(&self.id, Item { id })
     }
 }
