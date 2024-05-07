@@ -14,6 +14,7 @@ module better_kiosk::kiosk {
 
     const ENotOwner: u64 = 0;
     const EItemNotFound: u64 = 11;
+    const ENftPriceLess: u64 = 12;
 
     public struct Kiosk has key, store {
         id: UID,
@@ -79,7 +80,7 @@ module better_kiosk::kiosk {
 
     // either make nft for available to purchase or remove from listing and send back to the original owner
     public fun fullfill_request_for_nft<T: key + store>(
-        self: &mut Kiosk, cap: &KioskOwnerCap, id: ID, list_in_marketplace: bool,
+        self: &mut Kiosk, cap: &KioskOwnerCap, id: ID, new_price: u64, list_in_marketplace: bool,
     ){
         assert!(self.has_access(cap), ENotOwner);
         assert!(self.has_item(id), EItemNotFound);
@@ -91,7 +92,8 @@ module better_kiosk::kiosk {
         }else{
             assert!(self.has_item_with_type<T>(id), EItemNotFound);
             let price = *table::borrow(&self.prices, id);
-            df::add(&mut self.id, Listing { id}, price);
+            assert!(new_price > price, ENftPriceLess);
+            df::add(&mut self.id, Listing { id}, new_price);
         };
     }
 
