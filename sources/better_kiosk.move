@@ -10,7 +10,6 @@ module better_kiosk::kiosk {
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
     use sui::event;
-    use sui::object::{ID, UID};
     use sui::table::{Self, Table};
 
     const ENotOwner: u64 = 0;
@@ -69,7 +68,7 @@ module better_kiosk::kiosk {
         self.place_internal(item, price, ctx)
     }
 
-    public(package) fun place_internal<T: key + store>(self: &mut Kiosk, item: T, price: u64, ctx: &mut TxContext) {
+    public(package) fun place_internal<T: key + store>(self: &mut Kiosk, item: T, price: u64, ctx: &TxContext) {
         let nft_owner = tx_context::sender(ctx);
         self.item_count = self.item_count + 1;
         let item_id = object::id(&item);
@@ -78,7 +77,8 @@ module better_kiosk::kiosk {
         table::add(&mut self.prices, item_id, price);
     }
 
-    public fun full_request_for_nft<T: key + store>(
+    // either make nft for available to purchase or remove from listing and send back to the original owner
+    public fun fullfill_request_for_nft<T: key + store>(
         self: &mut Kiosk, cap: &KioskOwnerCap, id: ID, list_in_marketplace: bool,
     ){
         assert!(self.has_access(cap), ENotOwner);
@@ -105,5 +105,36 @@ module better_kiosk::kiosk {
 
     public fun has_item_with_type<T: key + store>(self: &Kiosk, id: ID): bool {
         dof::exists_with_type<Item, T>(&self.id, Item { id })
+    }
+
+    public fun is_owner(self: &Kiosk, id: ID, ctx: &TxContext): bool {
+        let nft_owner = table::borrow(&self.nft_owner, id);
+        let caller = tx_context::sender(ctx);
+        if (caller == nft_owner){
+            true
+        }else{
+            false
+        }
+    }
+
+    // allowing nft_owner to cancel from listing or making withdrawl from purchase
+    public fun remove_listing_or_withdraw_from_purchase<T: key + store>(
+        self: &mut Kiosk, id: ID, ctx: &TxContext
+    ){
+        assert!(self.has_item(id), EItemNotFound);
+        assert!(self.is_owner(id, ctx), ENotOwner);
+        // if only listed
+        if (self.has_item(id)){
+            df::remove_if_exists<Item, u64>(&mut self.id, Item { id});     
+        }
+        // if approved for purchase
+        else{
+            df::remove_if_exists<Listing, u64>(&mut self.id, Listing { id});
+        };
+        self.item_count = self.item_count - 1;
+        let nft_owner = table::borrow(&self.nft_owner, id);
+        sui::transfer::public_transfer(dof::remove<ID, T>(&mut self.id, id), *nft_owner); 
+        table::remove(&mut self.nft_owner, id); 
+        table::remove(&mut self.prices, id);   
     }
 }
