@@ -15,6 +15,7 @@ module better_kiosk::kiosk {
     const ENotOwner: u64 = 0;
     const EItemNotFound: u64 = 11;
     const ENftPriceLess: u64 = 12;
+    const EIncorrectAmount: u64 = 13;
 
     public struct Kiosk has key, store {
         id: UID,
@@ -138,5 +139,18 @@ module better_kiosk::kiosk {
         sui::transfer::public_transfer(dof::remove<ID, T>(&mut self.id, id), *nft_owner); 
         table::remove(&mut self.nft_owner, id); 
         table::remove(&mut self.prices, id);   
+    }
+
+    public fun purchase<T: key + store>(
+        self: &mut Kiosk, id: ID, payment: Coin<SUI>
+    ): (T, TransferRequest<T>) {
+        let price = df::remove<Listing, u64>(&mut self.id, Listing { id});
+        let inner = dof::remove<Item, T>(&mut self.id, Item { id });
+
+        self.item_count = self.item_count - 1;
+        assert!(price == payment.value(), EIncorrectAmount);
+        df::remove_if_exists<Listing, bool>(&mut self.id, Listing { id });
+        coin::put(&mut self.profits, payment);
+        (inner, transfer_policy::new_request(id, price, object::id(self)))
     }
 }
