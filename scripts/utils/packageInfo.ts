@@ -5,3 +5,5 @@ export let TransferPolicyId = '0x30abd03127fb1082a1a2ce606095b3afe757086fa13ed29
 
 export let Kiosk = '0xf85c7887594a73d7f45b8e0d8a8c2bfd81b7b819b93510a8c725e33138fcfd8e';
 export let KioskOwnerCap = '0x6dd805cf089762267711d25401391db2020de9fd286de74938a19086517f9340';
+
+export let nftId = '0xa7582eb9a01e1dc460c42a665ba4f323ff943fd9318c493e964c870627fe7505';
