@@ -16,6 +16,8 @@ module better_kiosk::kiosk {
     const EItemNotFound: u64 = 11;
     const ENftPriceLess: u64 = 12;
     const EIncorrectAmount: u64 = 13;
+    const ENotEnough: u64 = 14;
+    const ENotEmpty: u64 = 15;
 
     public struct Kiosk has key, store {
         id: UID,
@@ -152,5 +154,49 @@ module better_kiosk::kiosk {
         df::remove_if_exists<Listing, bool>(&mut self.id, Listing { id });
         coin::put(&mut self.profits, payment);
         (inner, transfer_policy::new_request(id, price, object::id(self)))
+    }
+
+
+    // Kiosk Admin Functionality
+
+    /// Withdraw profits from the Kiosk.
+    public fun withdraw(
+        self: &mut Kiosk, cap: &KioskOwnerCap, amount: Option<u64>, ctx: &mut TxContext
+    ): Coin<SUI> {
+        assert!(self.has_access(cap), ENotOwner);
+
+        let amount = if (amount.is_some()) {
+            let amt = amount.destroy_some();
+            assert!(amt <= self.profits.value(), ENotEnough);
+            amt
+        } else {
+            self.profits.value()
+        };
+
+        coin::take(&mut self.profits, amount, ctx)
+    }
+
+    public fun set_owner_custom(
+        self: &mut Kiosk, cap: &KioskOwnerCap, owner: address
+    ) {
+        assert!(self.has_access(cap), ENotOwner);
+        self.owner = owner
+    }
+
+    public fun close_and_withdraw(
+        self: Kiosk, cap: KioskOwnerCap, ctx: &mut TxContext
+    ): Coin<SUI> {
+        let Kiosk { id, profits, owner: _, item_count, nft_owner, fee_on_list:_, prices } = self;
+        let KioskOwnerCap { id: cap_id, `for` } = cap;
+
+        assert!(id.to_inner() == `for`, ENotOwner);
+        assert!(item_count == 0, ENotEmpty);
+
+        cap_id.delete();
+        id.delete();
+        table::drop(nft_owner);
+        table::drop(prices);
+
+        profits.into_coin(ctx)
     }
 }
