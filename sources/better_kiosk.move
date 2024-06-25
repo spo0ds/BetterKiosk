@@ -1,15 +1,13 @@
 module better_kiosk::kiosk {
-    use sui::dynamic_object_field as dof;
+    // use sui::dynamic_object_field as dof;
     use sui::dynamic_field as df;
     use sui::transfer_policy::{
         Self,
-        TransferPolicy,
         TransferRequest
     };
     use sui::balance::{Self, Balance};
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
-    use sui::event;
     use sui::table::{Self, Table};
 
     const ENotOwner: u64 = 0;
@@ -65,7 +63,8 @@ module better_kiosk::kiosk {
     }
 
     public fun request_approve_for_list<T: key + store>(
-        self: &mut Kiosk, item: T,
+        self: &mut Kiosk, 
+        item: T,
         price: u64,
         ctx: &mut TxContext,
     ) {
@@ -76,7 +75,7 @@ module better_kiosk::kiosk {
         let nft_owner = tx_context::sender(ctx);
         self.item_count = self.item_count + 1;
         let item_id = object::id(&item);
-        dof::add(&mut self.id, Item { id: item_id }, item);
+        df::add(&mut self.id, Item { id: item_id }, item);
         table::add(&mut self.nft_owner, item_id, nft_owner);
         table::add(&mut self.prices, item_id, price);
     }
@@ -89,19 +88,19 @@ module better_kiosk::kiosk {
         assert!(self.has_item(id), EItemNotFound);
         if (!list_in_marketplace){
             self.item_count = self.item_count - 1;
-            df::remove_if_exists<Listing, u64>(&mut self.id, Listing { id});
+            let inner = df::remove<Item, T>(&mut self.id, Item { id}); 
             let nft_owner = table::borrow(&self.nft_owner, id);
-            sui::transfer::public_transfer(dof::remove<ID, T>(&mut self.id, id), *nft_owner);        
+            sui::transfer::public_transfer(inner, *nft_owner);        
         }else{
             assert!(self.has_item_with_type<T>(id), EItemNotFound);
             let price = *table::borrow(&self.prices, id);
-            assert!(new_price > price, ENftPriceLess);
+            assert!(new_price >= price, ENftPriceLess);
             df::add(&mut self.id, Listing { id}, new_price);
         };
     }
 
     public fun has_item(self: &Kiosk, id: ID): bool {
-        dof::exists_(&self.id, Item { id })
+        df::exists_(&self.id, Item { id })
     }
 
     public fun has_access(self: &mut Kiosk, cap: &KioskOwnerCap): bool {
@@ -109,7 +108,11 @@ module better_kiosk::kiosk {
     }
 
     public fun has_item_with_type<T: key + store>(self: &Kiosk, id: ID): bool {
-        dof::exists_with_type<Item, T>(&self.id, Item { id })
+        df::exists_with_type<Item, T>(&self.id, Item { id })
+    }
+
+    public fun is_listed(self: &Kiosk, id: ID): bool {
+        df::exists_(&self.id, Listing { id})
     }
 
     public fun is_owner(self: &Kiosk, id: ID, ctx: &TxContext): bool {
@@ -128,17 +131,14 @@ module better_kiosk::kiosk {
     ){
         assert!(self.has_item(id), EItemNotFound);
         assert!(self.is_owner(id, ctx), ENotOwner);
-        // if only listed
-        if (self.has_item(id)){
-            df::remove_if_exists<Item, u64>(&mut self.id, Item { id});     
-        }
         // if approved for purchase
-        else{
-            df::remove_if_exists<Listing, u64>(&mut self.id, Listing { id});
+        if (self.is_listed(id)){
+              df::remove_if_exists<Listing, u64>(&mut self.id, Listing { id});  
         };
+        let inner = df::remove<Item, T>(&mut self.id, Item { id}); 
         self.item_count = self.item_count - 1;
         let nft_owner = table::borrow(&self.nft_owner, id);
-        sui::transfer::public_transfer(dof::remove<ID, T>(&mut self.id, id), *nft_owner); 
+        sui::transfer::public_transfer(inner, *nft_owner); 
         table::remove(&mut self.nft_owner, id); 
         table::remove(&mut self.prices, id);   
     }
@@ -147,7 +147,7 @@ module better_kiosk::kiosk {
         self: &mut Kiosk, id: ID, payment: Coin<SUI>
     ): (T, TransferRequest<T>) {
         let price = df::remove<Listing, u64>(&mut self.id, Listing { id});
-        let inner = dof::remove<Item, T>(&mut self.id, Item { id });
+        let inner = df::remove<Item, T>(&mut self.id, Item { id });
 
         self.item_count = self.item_count - 1;
         assert!(price == payment.value(), EIncorrectAmount);
