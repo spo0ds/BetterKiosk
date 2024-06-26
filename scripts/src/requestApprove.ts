@@ -8,7 +8,7 @@ dotenv.config();
 async function requestApprove() {
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
-    const pt = tx.moveCall({
+    tx.moveCall({
         target: `${packageId}::kiosk::request_approve_for_list`,
         arguments: [
             tx.object(Kiosk),
@@ -24,7 +24,6 @@ async function requestApprove() {
         transactionBlock: tx,
     });
     console.log({ result });
-    console.log(pt);
 }
 
 

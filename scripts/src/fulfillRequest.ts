@@ -8,7 +8,7 @@ dotenv.config();
 async function fulfillRequest() {
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
-    const pt = tx.moveCall({
+    tx.moveCall({
         target: `${packageId}::kiosk::fullfill_request_for_nft`,
         arguments: [
             tx.object(Kiosk),

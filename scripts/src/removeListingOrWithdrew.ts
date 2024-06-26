@@ -8,7 +8,7 @@ dotenv.config();
 async function purchase() {
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
-    const pt = tx.moveCall({
+    tx.moveCall({
         target: `${packageId}::kiosk::remove_listing_or_withdraw_from_purchase`,
         arguments: [
             tx.object(Kiosk),

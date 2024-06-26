@@ -21,8 +21,6 @@ async function purchase() {
         typeArguments: [itemType]
     });
 
-    console.log("Bought from kiosk")
-
     tx.moveCall({
         target: `${packageId}::royalty_policy::pay`,
         arguments: [

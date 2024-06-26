@@ -8,7 +8,7 @@ dotenv.config();
 async function mintNft() {
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
-    const pt = tx.moveCall({
+    tx.moveCall({
         target: `${packageId}::nft::mint`,
         arguments: [
             tx.object(nftCap),
@@ -22,7 +22,6 @@ async function mintNft() {
         transactionBlock: tx,
     });
     console.log({ result });
-    console.log(pt);
     const digest_ = result.digest;
 
     const txn = await client.getTransactionBlock({
