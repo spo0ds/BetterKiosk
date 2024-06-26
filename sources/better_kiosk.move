@@ -12,6 +12,7 @@ module better_kiosk::kiosk {
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
     use sui::table::{Self, Table};
+    use sui::event;
 
     /*//////////////////////////////////////////////////////////////////////////
                                      ERRORS
@@ -56,11 +57,48 @@ module better_kiosk::kiosk {
     public struct Listing has store, copy, drop { id: ID}
 
     /*//////////////////////////////////////////////////////////////////////////
+                                     Events
+    ////////////////////////////////////////////////////////////////////////// */
+
+    public struct ItemRequested<phantom T: key + store> has copy, drop {
+        kiosk: ID,
+        id: ID,
+        price: u64
+    }
+
+    public struct ItemPurchased<phantom T: key + store> has copy, drop {
+        kiosk: ID,
+        id: ID,
+        price: u64
+    }
+
+    public struct ItemWithdrawn<phantom T: key + store> has copy, drop {
+        kiosk: ID,
+        id: ID
+    }
+
+    public struct ItemReturned<phantom T: key + store> has copy, drop {
+        kiosk: ID,
+        id: ID
+    }
+
+    public struct ItemListed<phantom T: key + store> has copy, drop {
+        kiosk: ID,
+        id: ID,
+        price: u64
+    }
+
+    public struct OwnerChanged has copy, drop {
+        prev_owner: address,
+        new_owner: address
+    }
+
+
+    /*//////////////////////////////////////////////////////////////////////////
                                      Kiosk Creation
     ////////////////////////////////////////////////////////////////////////// */
 
-    /// @dev Creates a new Kiosk in a default configuration: sender receives the
-    ///     `KioskOwnerCap` and becomes the Owner, the `Kiosk` is shared.
+    /// @dev Creates a new Kiosk in a default configuration: sender receives the`KioskOwnerCap` and becomes the Owner, the `Kiosk` is shared.
     
     #[allow(lint(self_transfer, share_owned))]
     entry fun default(ctx: &mut TxContext) {
@@ -107,7 +145,8 @@ module better_kiosk::kiosk {
         price: u64,
         ctx: &mut TxContext,
     ) {
-        self.place_internal(item, price, ctx)
+        event::emit(ItemRequested<T> { kiosk: object::id(self), id: object::id(&item), price });
+        self.place_internal(item, price, ctx); 
     }
 
     /**
@@ -130,7 +169,8 @@ module better_kiosk::kiosk {
         let nft_owner = table::borrow(&self.nft_owner, id);
         sui::transfer::public_transfer(inner, *nft_owner); 
         table::remove(&mut self.nft_owner, id); 
-        table::remove(&mut self.prices, id);   
+        table::remove(&mut self.prices, id); 
+        event::emit(ItemWithdrawn<T> { kiosk: object::id(self), id});  
     }
 
     /**
@@ -150,6 +190,7 @@ module better_kiosk::kiosk {
         assert!(price == payment.value(), EIncorrectAmount);
         df::remove_if_exists<Listing, bool>(&mut self.id, Listing { id });
         coin::put(&mut self.profits, payment);
+        event::emit(ItemPurchased<T> { kiosk: object::id(self), id, price });
         (inner, transfer_policy::new_request(id, price, object::id(self)))
     }
 
@@ -177,11 +218,13 @@ module better_kiosk::kiosk {
             self.item_count = self.item_count - 1;
             let inner = df::remove<Item, T>(&mut self.id, Item { id}); 
             let nft_owner = table::borrow(&self.nft_owner, id);
+            event::emit(ItemReturned<T> { kiosk: object::id(self), id});
             sui::transfer::public_transfer(inner, *nft_owner);        
         }else{
             assert!(self.has_item_with_type<T>(id), EItemNotFound);
             let price = *table::borrow(&self.prices, id);
             assert!(new_price >= price, ENftPriceLess);
+            event::emit(ItemListed<T> { kiosk: object::id(self), id, price });
             df::add(&mut self.id, Listing { id}, new_price);
         };
     }
@@ -218,9 +261,10 @@ module better_kiosk::kiosk {
     */
 
     public fun set_owner_custom(
-        self: &mut Kiosk, cap: &KioskOwnerCap, owner: address
+        self: &mut Kiosk, cap: &KioskOwnerCap, owner: address, ctx: &TxContext
     ) {
         assert!(self.has_access(cap), ENotOwner);
+        event::emit(OwnerChanged { prev_owner: ctx.sender(), new_owner: owner });
         self.owner = owner
     }
 
