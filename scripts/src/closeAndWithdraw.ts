@@ -9,7 +9,7 @@ async function closeAndWithdraw() {
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
     const pt = tx.moveCall({
-        target: `${packageId}::kiosk::close_and_withdraw`,
+        target: `${packageId}::kiosk::close_and_withdraw_profit`,
         arguments: [
             tx.object(Kiosk),
             tx.object(KioskOwnerCap),

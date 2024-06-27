@@ -5,16 +5,18 @@ import { packageId, Kiosk, nftId } from '../utils/packageInfo';
 dotenv.config();
 
 
-async function purchase() {
+async function listRequest() {
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
     tx.moveCall({
-        target: `${packageId}::kiosk::remove_listing_or_withdraw_from_purchase`,
+        target: `${packageId}::kiosk::list_request`,
         arguments: [
             tx.object(Kiosk),
-            tx.pure.address(nftId),
+            tx.object(nftId),
+            tx.pure.u64(10000000),
         ],
         typeArguments: [`${packageId}::nft::NFT`]
+
     });
 
     const result = await client.signAndExecuteTransactionBlock({
@@ -25,4 +27,4 @@ async function purchase() {
 }
 
 
-purchase();
+listRequest();

@@ -5,11 +5,11 @@ import { packageId, Kiosk, nftId, KioskOwnerCap } from '../utils/packageInfo';
 dotenv.config();
 
 
-async function fulfillRequest() {
+async function finalizeListing() {
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
     tx.moveCall({
-        target: `${packageId}::kiosk::fullfill_request_for_nft`,
+        target: `${packageId}::kiosk::finalize_listing`,
         arguments: [
             tx.object(Kiosk),
             tx.object(KioskOwnerCap),
@@ -29,4 +29,4 @@ async function fulfillRequest() {
 }
 
 
-fulfillRequest();
+finalizeListing();

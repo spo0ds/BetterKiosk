@@ -9,7 +9,7 @@ async function withdrawProfit() {
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
     const pt = tx.moveCall({
-        target: `${packageId}::kiosk::withdraw`,
+        target: `${packageId}::kiosk::withdraw_profit`,
         arguments: [
             tx.object(Kiosk),
             tx.object(KioskOwnerCap),

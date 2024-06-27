@@ -5,18 +5,16 @@ import { packageId, Kiosk, nftId } from '../utils/packageInfo';
 dotenv.config();
 
 
-async function requestApprove() {
+async function withdrawNft() {
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
     tx.moveCall({
-        target: `${packageId}::kiosk::request_approve_for_list`,
+        target: `${packageId}::kiosk::withdraw_nft`,
         arguments: [
             tx.object(Kiosk),
-            tx.object(nftId),
-            tx.pure.u64(10000000),
+            tx.pure.address(nftId),
         ],
         typeArguments: [`${packageId}::nft::NFT`]
-
     });
 
     const result = await client.signAndExecuteTransactionBlock({
@@ -27,4 +25,4 @@ async function requestApprove() {
 }
 
 
-requestApprove();
+withdrawNft();
