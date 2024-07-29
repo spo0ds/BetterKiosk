@@ -3,7 +3,7 @@
 /// @notice Kiosk but with a slight twist to make it more better.
 
 module better_kiosk::kiosk {
-    use sui::dynamic_field as df;
+        use sui::dynamic_field as df;
     use sui::transfer_policy::{
         Self,
         TransferRequest
@@ -37,7 +37,6 @@ module better_kiosk::kiosk {
         owner: address,
         item_count: u32,
         nft_owner: Table<ID, address>,
-        fee_on_list: bool,
         prices: Table<ID, u64>,
     }
 
@@ -116,7 +115,6 @@ module better_kiosk::kiosk {
             owner: ctx.sender(),
             item_count: 0,
             nft_owner: table::new(ctx),
-            fee_on_list: false,
             prices: table::new(ctx),
         };
 
@@ -181,7 +179,7 @@ module better_kiosk::kiosk {
     */
 
     public fun purchase<T: key + store>(
-        self: &mut Kiosk, id: ID, payment: Coin<SUI>
+        self: &mut Kiosk, id: ID, payment: Coin<SUI>, ctx: &mut TxContext
     ): (T, TransferRequest<T>) {
         let price = df::remove<Listing, u64>(&mut self.id, Listing { id});
         let inner = df::remove<Item, T>(&mut self.id, Item { id });
@@ -189,7 +187,15 @@ module better_kiosk::kiosk {
         self.item_count = self.item_count - 1;
         assert!(price == payment.value(), EIncorrectAmount);
         df::remove_if_exists<Listing, bool>(&mut self.id, Listing { id });
-        coin::put(&mut self.profits, payment);
+        let item_owner: &address = table::borrow(&self.nft_owner, id);
+        let original_price = table::borrow(&self.prices, id);
+        let mut balance = coin::into_balance(payment);
+        if (price > *original_price){ 
+            let profit_coin = coin::take(&mut balance, price - *original_price, ctx);
+            coin::put(&mut self.profits, profit_coin);
+        };
+        let payment = coin::from_balance(balance, ctx);
+        transfer::public_transfer(payment, *item_owner);
         event::emit(ItemPurchased<T> { kiosk: object::id(self), id, price });
         (inner, transfer_policy::new_request(id, price, object::id(self)))
     }
@@ -281,7 +287,7 @@ module better_kiosk::kiosk {
     public fun close_and_withdraw_profit(
         self: Kiosk, cap: KioskOwnerCap, ctx: &mut TxContext
     ): Coin<SUI> {
-        let Kiosk { id, profits, owner: _, item_count, nft_owner, fee_on_list:_, prices } = self;
+        let Kiosk { id, profits, owner: _, item_count, nft_owner, prices } = self;
         let KioskOwnerCap { id: cap_id, `for` } = cap;
 
         assert!(id.to_inner() == `for`, ENotOwner);
